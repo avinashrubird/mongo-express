@@ -18,7 +18,9 @@ var app = express();
 
 var config = require('./config');
 
-//Set up swig
+var DBusername = 'aneeshdevi',
+    DBpassword = '@AnEEshDevi013';
+    
 app.engine('html', cons.swig);
 swig.init({
   root: __dirname + '/views',
@@ -285,7 +287,36 @@ var middleware = function(req, res, next) {
   //Allow page handlers to request an update for collection list
   req.updateCollections = updateCollections;
 
-  next();
+  var auth = req.headers['authorization'];  // auth is in base64(username:password)  so we need to decode the base64
+  console.log("Authorization Header is: ", auth);
+
+  if(!auth) {
+      res.statusCode = 401;
+      res.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"');
+
+      res.end('<html><body>Need some creds</body></html>');
+  }else if(auth) {   
+
+      var tmp = auth.split(' ');   // Split on a space, the original auth looks like  "Basic Y2hhcmxlczoxMjM0NQ==" and we need the 2nd part
+      var buf = new Buffer(tmp[1], 'base64'); // create a buffer and tell it the data coming in is base64
+      var plain_auth = buf.toString();        // read it back out as a string
+
+      console.log("Decoded Authorization ", plain_auth);
+
+      // At this point plain_auth = "username:password"
+      var creds = plain_auth.split(':');      // split on a ':'
+      var username = creds[0];
+      var password = creds[1];
+
+      if((username == DBusername) && (password == DBpassword)) {   // Is the username/password correct?
+        res.statusCode = 200;  // OK
+        next();
+      }else {
+        res.statusCode = 401; // Force them to retry authentication
+        res.setHeader('WWW-Authenticate', 'Basic realm="Secure Area"');
+        res.statusCode = 403;   // or alternatively just reject them altogether with a 403 Forbidden
+      }
+  }
 };
 
 //Routes
